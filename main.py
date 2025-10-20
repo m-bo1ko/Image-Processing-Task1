@@ -1,5 +1,7 @@
 import sys
 import cv2
+import math
+import random
 import numpy as np
 
 def load_image(path):
@@ -28,13 +30,12 @@ def brightness(img, value):
 def contrast(img, value):
     h, w, c = img.shape
     result = np.zeros((h, w, c), dtype=np.uint8)
-    # Считаем среднее вручную
     total = 0
     count = h * w * c
     for y in range(h):
         for x in range(w):
             for ch in range(c):
-                total += img[y, x, ch]
+                total += int(img[y, x, ch])
     mean = total / count
 
     for y in range(h):
@@ -46,6 +47,15 @@ def contrast(img, value):
                 elif new_val > 255:
                     new_val = 255
                 result[y, x, ch] = int(new_val)
+    return result
+
+def negative(img):
+    h, w, c = img.shape
+    result = np.zeros((h, w, c), dtype=np.uint8)
+    for y in range(h):
+        for x in range(w):
+            for ch in range(c):
+                result[y, x, ch] = 255 - img[y, x, ch]
     return result
 
 def hflip(img):
@@ -102,15 +112,6 @@ def enlarge(img, factor):
                         new_x = x * factor + dx
                         if new_y < new_h and new_x < new_w:
                             result[new_y, new_x, ch] = img[y, x, ch]
-    return result
-
-def negative(img):
-    h, w, c = img.shape
-    result = np.zeros((h, w, c), dtype=np.uint8)
-    for y in range(h):
-        for x in range(w):
-            for ch in range(c):
-                result[y, x, ch] = 255 - img[y, x, ch]
     return result
 
 def median_filter(img, kernel_size):
@@ -202,23 +203,22 @@ def add_gaussian_noise(img, sigma):
                 result[y, x, ch] = int(val)
     return result
 
-def add_salt_pepper_noise(img, prob):
-    import random
-    h, w, c = img.shape
-    result = np.zeros((h, w, c), dtype=np.uint8)
-    for y in range(h):
-        for x in range(w):
+def add_salt_pepper_noise(image, salt_ratio=0.05, pepper_ratio=0.05):
+    height, width, channels = image.shape
+    noisy_image = np.copy(image)
+    for y in range(height):
+        for x in range(width):
             r = random.random()
-            if r < prob / 2:
-                for ch in range(c):
-                    result[y, x, ch] = 0
-            elif r < prob:
-                for ch in range(c):
-                    result[y, x, ch] = 255
+            if r < salt_ratio:
+                for ch in range(channels):
+                    noisy_image[y, x, ch] = 255
+            elif r < salt_ratio + pepper_ratio:
+                for ch in range(channels):
+                    noisy_image[y, x, ch] = 0
             else:
-                for ch in range(c):
-                    result[y, x, ch] = img[y, x, ch]
-    return result
+                for ch in range(channels):
+                    noisy_image[y, x, ch] = image[y, x, ch]
+    return noisy_image
 
 def mse(img1, img2):
     h, w, c = img1.shape
@@ -230,6 +230,19 @@ def mse(img1, img2):
                 diff = int(img1[y, x, ch]) - int(img2[y, x, ch])
                 total += diff * diff
     return total / count
+
+def pmse(img1, img2):
+    h, w, c = img1.shape
+    total = 0
+    count = h * w * c
+    for y in range(h):
+        for x in range(w):
+            for ch in range(c):
+                diff = int(img1[y, x, ch]) - int(img2[y, x, ch])
+                total += diff * diff
+    mse_val = total / count
+    pmse_val = mse_val / (255.0 ** 2)
+    return pmse_val
 
 def snr(img1, img2):
     h, w, c = img1.shape
@@ -245,6 +258,12 @@ def snr(img1, img2):
     if noise_sum == 0:
         return float('inf')
     return 10 * np.log10(signal_sum / noise_sum)
+
+def psnr(img1, img2):
+    mse_val = mse(img1, img2)
+    if mse_val == 0:
+        return float('inf')
+    return 10 * math.log10((255.0 ** 2) / mse_val)
 
 def md(img1, img2):
     h, w, c = img1.shape
@@ -266,21 +285,23 @@ Usage:
     python imgproc_manual.py --command -input=in.png -output=out.png [params]
 
 Commands:
-    --brightness  -value=40
-    --contrast    -value=1.5
+    --brightness        -value=40
+    --contrast          -value=1.5
+    --negative
     --hflip
     --vflip
     --dflip
-    --shrink      -factor=2
-    --enlarge     -factor=2
-    --median      -kernel=3
-    --gmean       -size=3
-    --negative
-    --noise-gaussian -sigma=25
-    --noise-saltpepper -p=0.05
-    --mse -ref=ref.png
-    --snr -ref=ref.png
-    --md  -ref=ref.png
+    --shrink            -factor=2
+    --enlarge           -factor=2
+    --median            -kernel=3
+    --gmean             -size=3
+    --noise-gaussian    -sigma=25
+    --noise-saltpepper  -p=0.05
+    --mse   -ref=ref.png
+    --pmse  -ref=ref.png
+    --snr   -ref=ref.png
+    --psnr  -ref=ref.png
+    --md    -ref=ref.png
 """)
         sys.exit(0)
 
@@ -302,47 +323,73 @@ Commands:
     if cmd == "--brightness":
         val = float(args.get("value", 0))
         result = brightness(img, val)
+
     elif cmd == "--contrast":
         val = float(args.get("value", 1))
         result = contrast(img, val)
+
+    elif cmd == "--negative":
+        result = negative(img)
+
     elif cmd == "--hflip":
         result = hflip(img)
+
     elif cmd == "--vflip":
         result = vflip(img)
+
     elif cmd == "--dflip":
         result = dflip(img)
+
     elif cmd == "--shrink":
         f = float(args.get("factor", 2))
         result = shrink(img, f)
+
     elif cmd == "--enlarge":
         f = int(args.get("factor", 2))
         result = enlarge(img, f)
+
     elif cmd == "--median":
         k = int(args.get("kernel", 3))
         result = median_filter(img, k)
+
     elif cmd == "--gmean":
         s = int(args.get("size", 3))
         result = gmean_filter(img, s)
-    elif cmd == "--negative":
-        result = negative(img)
+
     elif cmd == "--noise-gaussian":
         sigma = float(args.get("sigma", 25))
         result = add_gaussian_noise(img, sigma)
+
     elif cmd == "--noise-saltpepper":
+        s = float(args.get("s", 0.05))
         p = float(args.get("p", 0.05))
-        result = add_salt_pepper_noise(img, p)
+        result = add_salt_pepper_noise(img, s, p)
+
     elif cmd == "--mse":
         ref = load_image(args["ref"])
         print("MSE:", mse(img, ref))
         return
+
+    elif cmd == "--pmse":
+        ref = load_image(args["ref"])
+        print("PMSE:", pmse(img, ref))
+        return
+
     elif cmd == "--snr":
         ref = load_image(args["ref"])
         print("SNR:", snr(img, ref))
         return
+
+    elif cmd == "--psnr":
+        ref = load_image(args["ref"])
+        print("PSNR:", psnr(img, ref))
+        return
+
     elif cmd == "--md":
         ref = load_image(args["ref"])
         print("MD:", md(img, ref))
         return
+
     else:
         print(f"Unknown command: {cmd}")
         sys.exit(1)
