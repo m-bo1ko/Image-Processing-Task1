@@ -203,22 +203,30 @@ def add_gaussian_noise(img, sigma):
                 result[y, x, ch] = int(val)
     return result
 
-def add_salt_pepper_noise(image, salt_ratio=0.05, pepper_ratio=0.05):
-    height, width, channels = image.shape
-    noisy_image = np.copy(image)
-    for y in range(height):
-        for x in range(width):
-            r = random.random()
-            if r < salt_ratio:
-                for ch in range(channels):
-                    noisy_image[y, x, ch] = 255
-            elif r < salt_ratio + pepper_ratio:
-                for ch in range(channels):
-                    noisy_image[y, x, ch] = 0
-            else:
-                for ch in range(channels):
-                    noisy_image[y, x, ch] = image[y, x, ch]
-    return noisy_image
+
+def add_salt_pepper_noise(img, prob=0.05):
+    h, w, c = img.shape
+    result = img.copy().astype(np.uint8)
+
+    total_pixels = h * w
+    num_salt = int(total_pixels * prob)
+    num_pepper = int(total_pixels * prob)
+
+    # Salt (255)
+    for _ in range(num_salt):
+        y = np.random.randint(0, h)
+        x = np.random.randint(0, w)
+        for ch in range(c):
+            result[y, x, ch] = 255
+
+    # Pepper (0)
+    for _ in range(num_pepper):
+        y = np.random.randint(0, h)
+        x = np.random.randint(0, w)
+        for ch in range(c):
+            result[y, x, ch] = 0
+
+    return result
 
 def mse(img1, img2):
     h, w, c = img1.shape
@@ -360,10 +368,10 @@ Commands:
         sigma = float(args.get("sigma", 25))
         result = add_gaussian_noise(img, sigma)
 
+
     elif cmd == "--noise-saltpepper":
-        s = float(args.get("s", 0.05))
         p = float(args.get("p", 0.05))
-        result = add_salt_pepper_noise(img, s, p)
+        result = add_salt_pepper_noise(img, p)
 
     elif cmd == "--mse":
         ref = load_image(args["ref"])
