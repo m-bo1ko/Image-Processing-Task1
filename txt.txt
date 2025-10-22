@@ -1,0 +1,32 @@
+
+python main.py --brightness -input=lena.bmp -output=bright.bmp -value=40
+python main.py --contrast -input=lena.bmp -output=contrast.bmp -value=1.5
+python main.py --negative -input=lena.bmp -output=negative.bmp
+python main.py --hflip -input=lena.bmp -output=hflip.bmp
+python main.py --vflip -input=lena.bmp -output=vflip.bmp
+python main.py --dflip -input=lena.bmp -output=dflip.bmp
+python main.py --shrink -input=lena.bmp -output=shrink.bmp -factor=2
+python main.py --enlarge -input=lena.bmp -output=enlarge.bmp -factor=2
+python main.py --median -input=lena.bmp -output=median.bmp -kernel=3
+python main.py --gmean -input=lena.bmp -output=gmean.bmp -size=3
+
+
+python main.py --noise-gaussian -input=lena.bmp -output=noisy_gauss.bmp -sigma=25
+python main.py --noise-saltpepper -input=lena.bmp -output=noisy_sp.bmp -p=0.05
+
+
+python main.py --mse -input=noisy_gauss.bmp -ref=lena.bmp
+python main.py --pmse -input=noisy_gauss.bmp -ref=lena.bmp
+python main.py --snr -input=noisy_gauss.bmp -ref=lena.bmp
+python main.py --psnr -input=noisy_gauss.bmp -ref=lena.bmp
+python main.py --md -input=noisy_gauss.bmp -ref=lena.bmp
+
+
+python main.py --noise-gaussian -input=lena.bmp -output=noisy.bmp -sigma=25
+python main.py --gmean -input=noisy.bmp -output=filtered.bmp -size=3
+python main.py --pmse -input=noisy.bmp -ref=lena.bmp
+python main.py --pmse -input=filtered.bmp -ref=lena.bmp
+python main.py --psnr -input=filtered.bmp -ref=lena.bmp
+
+
+python main.py --help
